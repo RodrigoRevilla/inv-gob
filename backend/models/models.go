@@ -50,9 +50,13 @@ type CatalogoBien struct {
 	VersionID         pgtype.UUID `json:"version_id"`
 	DependenciaID     pgtype.UUID `json:"dependencia_id"`
 	NumeroInventario  string      `json:"numero_inventario"`
+	NumeroSerie       string      `json:"numero_serie"`
 	Descripcion       string      `json:"descripcion"`
-	Clasificacion     string      `json:"clasificacion"`
+	Marca             string      `json:"marca"`
+	Modelo            string      `json:"modelo"`
 	UbicacionEsperada string      `json:"ubicacion_esperada"`
+	Resguardo         string      `json:"resguardo"`
+	Clasificacion     string      `json:"clasificacion"`
 	Estado            string      `json:"estado"`
 	CreatedAt         time.Time   `json:"created_at"`
 }
@@ -65,9 +69,13 @@ type ImportarCatalogoRequest struct {
 
 type BienImportar struct {
 	NumeroInventario  string `json:"numero_inventario"`
+	NumeroSerie       string `json:"numero_serie"`
 	Descripcion       string `json:"descripcion"`
-	Clasificacion     string `json:"clasificacion"`
+	Marca             string `json:"marca"`
+	Modelo            string `json:"modelo"`
 	UbicacionEsperada string `json:"ubicacion_esperada"`
+	Resguardo         string `json:"resguardo"`
+	Clasificacion     string `json:"clasificacion"`
 }
 
 type SesionEscaneo struct {
@@ -116,6 +124,10 @@ type EscaneoResponse struct {
 	Resultado          string      `json:"resultado"`
 	NumeroInvLeido     string      `json:"numero_inv_leido"`
 	Descripcion        string      `json:"descripcion,omitempty"`
+	Marca              string      `json:"marca,omitempty"`
+	Modelo             string      `json:"modelo,omitempty"`
+	NumeroSerie        string      `json:"numero_serie,omitempty"`
+	Resguardo          string      `json:"resguardo,omitempty"`
 	UbicacionEsperada  string      `json:"ubicacion_esperada,omitempty"`
 	UbicacionEscaneada string      `json:"ubicacion_escaneada,omitempty"`
 	Mensaje            string      `json:"mensaje"`

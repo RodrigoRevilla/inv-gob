@@ -9,6 +9,7 @@ import (
 	"inv-gob/backend/db"
 	mw "inv-gob/backend/middleware"
 	"inv-gob/backend/models"
+	"log"
 )
 
 func ImportarCatalogo(w http.ResponseWriter, r *http.Request) {
@@ -63,20 +64,27 @@ func ImportarCatalogo(w http.ResponseWriter, r *http.Request) {
 	for i, b := range req.Bienes {
 		batch[i] = []interface{}{
 			versionID, claims.DependenciaID,
-			b.NumeroInventario, b.Descripcion,
-			b.Clasificacion, b.UbicacionEsperada,
+			b.NumeroInventario, b.NumeroSerie,
+			b.Descripcion, b.Marca, b.Modelo,
+			b.UbicacionEsperada, b.Resguardo, b.Clasificacion,
 		}
 	}
 
-	_, err = tx.CopyFrom(r.Context(),
-		[]string{"catalogo_bienes"},
-		[]string{"version_id", "dependencia_id", "numero_inventario", "descripcion", "clasificacion", "ubicacion_esperada"},
-		pgxCopyFromRows(batch),
-	)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, models.Err("DB_ERROR", "Error al insertar bienes"))
-		return
-	}
+_, err = tx.CopyFrom(r.Context(),
+    []string{"catalogo_bienes"},
+    []string{
+        "version_id", "dependencia_id",
+        "numero_inventario", "numero_serie",
+        "descripcion", "marca", "modelo",
+        "ubicacion_esperada", "resguardo", "clasificacion",
+    },
+    pgxCopyFromRows(batch),
+)
+if err != nil {
+    log.Printf("ERROR CopyFrom: %v", err) 
+    writeJSON(w, http.StatusInternalServerError, models.Err("DB_ERROR", "Error al insertar bienes"))
+    return
+}
 
 	if err := tx.Commit(r.Context()); err != nil {
 		writeJSON(w, http.StatusInternalServerError, models.Err("DB_ERROR", "Error al confirmar transacción"))
@@ -101,8 +109,12 @@ func ListarCatalogo(w http.ResponseWriter, r *http.Request) {
 	claims := mw.GetClaims(r)
 
 	rows, err := db.Pool.Query(r.Context(), `
-		SELECT cb.id, cb.numero_inventario, cb.descripcion,
-		       COALESCE(cb.clasificacion, ''), COALESCE(cb.ubicacion_esperada, ''), cb.estado
+		SELECT cb.id, cb.numero_inventario, cb.numero_serie,
+		       cb.descripcion, cb.marca, cb.modelo,
+		       COALESCE(cb.clasificacion, ''),
+		       COALESCE(cb.ubicacion_esperada, ''),
+		       COALESCE(cb.resguardo, ''),
+		       cb.estado
 		FROM catalogo_bienes cb
 		JOIN versiones_catalogo v ON v.id = cb.version_id
 		WHERE cb.dependencia_id = $1 AND v.activa = TRUE
@@ -118,16 +130,25 @@ func ListarCatalogo(w http.ResponseWriter, r *http.Request) {
 	type Bien struct {
 		ID                string `json:"id"`
 		NumeroInventario  string `json:"numero_inventario"`
+		NumeroSerie       string `json:"numero_serie"`
 		Descripcion       string `json:"descripcion"`
+		Marca             string `json:"marca"`
+		Modelo            string `json:"modelo"`
 		Clasificacion     string `json:"clasificacion"`
 		UbicacionEsperada string `json:"ubicacion_esperada"`
+		Resguardo         string `json:"resguardo"`
 		Estado            string `json:"estado"`
 	}
 
 	var bienes []Bien
 	for rows.Next() {
 		var b Bien
-		rows.Scan(&b.ID, &b.NumeroInventario, &b.Descripcion, &b.Clasificacion, &b.UbicacionEsperada, &b.Estado)
+		rows.Scan(
+			&b.ID, &b.NumeroInventario, &b.NumeroSerie,
+			&b.Descripcion, &b.Marca, &b.Modelo,
+			&b.Clasificacion, &b.UbicacionEsperada,
+			&b.Resguardo, &b.Estado,
+		)
 		bienes = append(bienes, b)
 	}
 
@@ -179,20 +200,20 @@ func ListarAuditLog(w http.ResponseWriter, r *http.Request) {
 	claims := mw.GetClaims(r)
 
 	rows, err := db.Pool.Query(r.Context(), `
-SELECT 
-    a.id,
-    a.operacion,
-    a.tabla_afectada,
-    a.datos_nuevos,
-    a.registrado_at,
-    u.nombre_completo,
-    u.usuario,
-    u.rol
-FROM audit_log a
-JOIN usuarios u ON u.id = a.usuario_id
-WHERE u.dependencia_id = $1
-ORDER BY a.registrado_at DESC
-LIMIT 200
+		SELECT
+		    a.id,
+		    a.operacion,
+		    a.tabla_afectada,
+		    a.datos_nuevos,
+		    a.registrado_at,
+		    u.nombre_completo,
+		    u.usuario,
+		    u.rol
+		FROM audit_log a
+		JOIN usuarios u ON u.id = a.usuario_id
+		WHERE u.dependencia_id = $1
+		ORDER BY a.registrado_at DESC
+		LIMIT 200
 	`, claims.DependenciaID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, models.Err("DB_ERROR", "Error al listar log"))

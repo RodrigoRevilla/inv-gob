@@ -47,18 +47,30 @@ func RegistrarEscaneo(w http.ResponseWriter, r *http.Request) {
 	var bien struct {
 		ID                string
 		Descripcion       string
+		NumeroSerie       string
+		Marca             string
+		Modelo            string
 		UbicacionEsperada string
+		Resguardo         string
 		Clasificacion     string
 	}
 
 	err = db.Pool.QueryRow(r.Context(), `
-		SELECT id, descripcion, COALESCE(ubicacion_esperada, ''), COALESCE(clasificacion, '')
+		SELECT id, descripcion,
+		       COALESCE(numero_serie, ''),
+		       COALESCE(marca, ''),
+		       COALESCE(modelo, ''),
+		       COALESCE(ubicacion_esperada, ''),
+		       COALESCE(resguardo, ''),
+		       COALESCE(clasificacion, '')
 		FROM catalogo_bienes
 		WHERE version_id = $1
 		  AND numero_inventario = $2
 		  AND estado = 'activo'
 	`, versionID, req.NumeroInvLeido).Scan(
-		&bien.ID, &bien.Descripcion, &bien.UbicacionEsperada, &bien.Clasificacion,
+		&bien.ID, &bien.Descripcion, &bien.NumeroSerie,
+		&bien.Marca, &bien.Modelo, &bien.UbicacionEsperada,
+		&bien.Resguardo, &bien.Clasificacion,
 	)
 
 	var resultado string
@@ -106,7 +118,11 @@ func RegistrarEscaneo(w http.ResponseWriter, r *http.Request) {
 		Resultado:          resultado,
 		NumeroInvLeido:     req.NumeroInvLeido,
 		Descripcion:        bien.Descripcion,
+		NumeroSerie:        bien.NumeroSerie,
+		Marca:              bien.Marca,
+		Modelo:             bien.Modelo,
 		UbicacionEsperada:  bien.UbicacionEsperada,
+		Resguardo:          bien.Resguardo,
 		UbicacionEscaneada: req.UbicacionEscaneada,
 		Mensaje:            mensaje,
 		EscaneadoAt:        escaneadoAt,
@@ -139,7 +155,11 @@ func ListarEscaneos(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Pool.Query(r.Context(), `
 		SELECT e.id, e.resultado, e.numero_inv_leido,
 		       COALESCE(cb.descripcion, ''),
+		       COALESCE(cb.numero_serie, ''),
+		       COALESCE(cb.marca, ''),
+		       COALESCE(cb.modelo, ''),
 		       COALESCE(cb.ubicacion_esperada, ''),
+		       COALESCE(cb.resguardo, ''),
 		       COALESCE(e.ubicacion_escaneada, ''),
 		       COALESCE(e.observaciones, ''),
 		       u.nombre_completo,
@@ -162,7 +182,11 @@ func ListarEscaneos(w http.ResponseWriter, r *http.Request) {
 		Resultado          string    `json:"resultado"`
 		NumeroInvLeido     string    `json:"numero_inv_leido"`
 		Descripcion        string    `json:"descripcion"`
+		NumeroSerie        string    `json:"numero_serie"`
+		Marca              string    `json:"marca"`
+		Modelo             string    `json:"modelo"`
 		UbicacionEsperada  string    `json:"ubicacion_esperada"`
+		Resguardo          string    `json:"resguardo"`
 		UbicacionEscaneada string    `json:"ubicacion_escaneada"`
 		Observaciones      string    `json:"observaciones"`
 		EscaneadoPor       string    `json:"escaneado_por"`
@@ -174,8 +198,10 @@ func ListarEscaneos(w http.ResponseWriter, r *http.Request) {
 		var e EscaneoDetalle
 		if err := rows.Scan(
 			&e.ID, &e.Resultado, &e.NumeroInvLeido,
-			&e.Descripcion, &e.UbicacionEsperada, &e.UbicacionEscaneada,
-			&e.Observaciones, &e.EscaneadoPor, &e.EscaneadoAt,
+			&e.Descripcion, &e.NumeroSerie, &e.Marca, &e.Modelo,
+			&e.UbicacionEsperada, &e.Resguardo,
+			&e.UbicacionEscaneada, &e.Observaciones,
+			&e.EscaneadoPor, &e.EscaneadoAt,
 		); err != nil {
 			continue
 		}
@@ -190,7 +216,8 @@ func ListarFaltantes(w http.ResponseWriter, r *http.Request) {
 	sesionID := chi.URLParam(r, "id")
 
 	rows, err := db.Pool.Query(r.Context(), `
-		SELECT numero_inventario, descripcion, ubicacion_esperada, clasificacion
+		SELECT numero_inventario, numero_serie, descripcion,
+		       marca, modelo, ubicacion_esperada, resguardo, clasificacion
 		FROM v_faltantes_por_sesion
 		WHERE sesion_id = $1
 		  AND sesion_id IN (
@@ -206,15 +233,23 @@ func ListarFaltantes(w http.ResponseWriter, r *http.Request) {
 
 	type Faltante struct {
 		NumeroInventario  string `json:"numero_inventario"`
+		NumeroSerie       string `json:"numero_serie"`
 		Descripcion       string `json:"descripcion"`
+		Marca             string `json:"marca"`
+		Modelo            string `json:"modelo"`
 		UbicacionEsperada string `json:"ubicacion_esperada"`
+		Resguardo         string `json:"resguardo"`
 		Clasificacion     string `json:"clasificacion"`
 	}
 
 	var faltantes []Faltante
 	for rows.Next() {
 		var f Faltante
-		rows.Scan(&f.NumeroInventario, &f.Descripcion, &f.UbicacionEsperada, &f.Clasificacion)
+		rows.Scan(
+			&f.NumeroInventario, &f.NumeroSerie, &f.Descripcion,
+			&f.Marca, &f.Modelo, &f.UbicacionEsperada,
+			&f.Resguardo, &f.Clasificacion,
+		)
 		faltantes = append(faltantes, f)
 	}
 

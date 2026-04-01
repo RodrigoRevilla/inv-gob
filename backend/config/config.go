@@ -21,7 +21,7 @@ func Load() *Config {
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnv("DB_PORT", "5432"),
 		DBUser:     getEnv("DB_USER", "inv_admin"),
-		DBPassword: getEnv("DB_PASSWORD", "cambia_esto_en_produccion"),
+		DBPassword: getEnv("DB_PASSWORD", "inv_prueba"),
 		DBName:     getEnv("DB_NAME", "inventario_gov"),
 		JWTSecret:  getEnv("JWT_SECRET", "dev_secret_cambia_en_produccion"),
 		Port:       getEnv("PORT", "9090"),
